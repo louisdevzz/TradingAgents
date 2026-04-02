@@ -97,6 +97,80 @@ Our framework decomposes complex trading tasks into specialized roles. This ensu
   <img src="assets/risk.png" width="70%" style="display: inline-block; margin: 0 2%;">
 </p>
 
+## Source Code Architecture
+
+TradingAgents is organized into several key modules for clean separation of concerns:
+
+### Project Structure
+
+```
+tradingagents/
+├── agents/                    # Specialized trading agents
+│   ├── analysts/             # Market, technical, sentiment, fundamentals analysis
+│   ├── researchers/          # Bull and bear debate agents
+│   ├── risk_mgmt/           # Risk assessment debators
+│   ├── managers/            # Research and portfolio managers
+│   ├── trader/              # Trade synthesis agent
+│   └── utils/               # Shared tools and utilities
+├── graph/                    # LangGraph workflow orchestration
+│   ├── trading_graph.py     # Main orchestrator
+│   ├── setup.py             # Graph construction
+│   ├── propagation.py       # State initialization
+│   ├── conditional_logic.py # Flow routing
+│   ├── reflection.py        # Learning from outcomes
+│   └── signal_processing.py # Decision extraction
+├── dataflows/               # Multi-source data integration
+│   ├── interface.py         # Abstract data interfaces
+│   ├── y_finance.py         # yfinance adapter
+│   ├── alpha_vantage.py     # Alpha Vantage adapter
+│   └── stockstats_utils.py  # Technical indicator calculations
+├── llm_clients/             # Multi-provider LLM support
+│   ├── factory.py           # Client creation
+│   ├── openai_client.py     # OpenAI/xAI/OpenRouter
+│   ├── anthropic_client.py  # Anthropic Claude
+│   ├── google_client.py     # Google Gemini
+│   └── model_catalog.py     # Supported models registry
+└── default_config.py        # Configuration defaults
+```
+
+### Key Components
+
+**Agents** - Specialized LLM-powered roles that analyze specific aspects of trading:
+- 4 Analyst agents (market, sentiment, news, fundamentals)
+- 2 Researcher agents (bull, bear perspectives)
+- 3 Risk management agents (aggressive, conservative, neutral)
+- 2 Manager agents (research judge, portfolio manager)
+- 1 Trader agent (synthesis)
+
+**Graph** - LangGraph StateGraph orchestrating agent execution:
+- Manages message flow and state evolution
+- Controls debate rounds and conditional routing
+- Handles memory and reflection
+- Processes final decisions
+
+**Data Layer** - Vendor-agnostic data integration:
+- Abstract interface for all data needs
+- Support for yfinance (free) and Alpha Vantage (paid)
+- Per-category and per-tool vendor configuration
+- Local caching for performance
+
+**LLM Integration** - Multi-provider language model support:
+- OpenAI (GPT-5.x, o3)
+- Google (Gemini 3.1)
+- Anthropic (Claude 4.6)
+- xAI (Grok), OpenRouter, Ollama
+
+### Complete Architecture Documentation
+
+For detailed information about each module, see:
+
+- [CODEMAPS/INDEX.md](./docs/CODEMAPS/INDEX.md) - Overview of all areas
+- [CODEMAPS/agents.md](./docs/CODEMAPS/agents.md) - Agent responsibilities and tools
+- [CODEMAPS/graph.md](./docs/CODEMAPS/graph.md) - Workflow orchestration
+- [CODEMAPS/dataflows.md](./docs/CODEMAPS/dataflows.md) - Data source integration
+- [CODEMAPS/llm_clients.md](./docs/CODEMAPS/llm_clients.md) - LLM provider support
+- [CODEMAPS/cli.md](./docs/CODEMAPS/cli.md) - Interactive CLI interface
+
 ## Installation and CLI
 
 ### Installation

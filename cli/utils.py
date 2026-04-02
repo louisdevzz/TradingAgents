@@ -189,8 +189,9 @@ def select_deep_thinking_agent(provider) -> str:
 
 def select_llm_provider() -> tuple[str, str]:
     """Select the OpenAI api url using interactive selection."""
-    # Define OpenAI api options with their corresponding endpoints
+    # Define LLM provider options. URL is None for OAuth-based providers.
     BASE_URLS = [
+        ("OpenAI Codex (ChatGPT OAuth - no API key needed)", "openai-codex"),
         ("OpenAI", "https://api.openai.com/v1"),
         ("Google", "https://generativelanguage.googleapis.com/v1"),
         ("Anthropic", "https://api.anthropic.com/"),
@@ -216,13 +217,16 @@ def select_llm_provider() -> tuple[str, str]:
     ).ask()
     
     if choice is None:
-        console.print("\n[red]no OpenAI backend selected. Exiting...[/red]")
+        console.print("\n[red]No LLM provider selected. Exiting...[/red]")
         exit(1)
-    
-    display_name, url = choice
-    print(f"You selected: {display_name}\tURL: {url}")
 
-    return display_name, url
+    display_name, url_or_id = choice
+    # For OpenAI Codex, url_or_id is the provider id "openai-codex" (no URL needed)
+    if url_or_id == "openai-codex":
+        print(f"You selected: {display_name}")
+        return "openai-codex", None
+    print(f"You selected: {display_name}\tURL: {url_or_id}")
+    return display_name, url_or_id
 
 
 def ask_openai_reasoning_effort() -> str:
@@ -281,6 +285,35 @@ def ask_gemini_thinking_config() -> str | None:
             ("pointer", "fg:green noinherit"),
         ]),
     ).ask()
+
+
+def select_market_mode() -> str:
+    """Select market mode: global/forex or Vietnam stock market."""
+    choice = questionary.select(
+        "Select Market Mode:",
+        choices=[
+            questionary.Choice(
+                "Global / Forex  (SPY, GC=F, AAPL, BTC-USD, ...)", "global"
+            ),
+            questionary.Choice(
+                "Vietnam Stock Market  (ACB, VNM, VIC, VN30, ... via SSI iBoard)", "vietnam"
+            ),
+        ],
+        instruction="\n- Use arrow keys to navigate\n- Press Enter to select",
+        style=questionary.Style(
+            [
+                ("selected", "fg:cyan noinherit"),
+                ("highlighted", "fg:cyan noinherit"),
+                ("pointer", "fg:cyan noinherit"),
+            ]
+        ),
+    ).ask()
+
+    if choice is None:
+        console.print("\n[red]No market mode selected. Exiting...[/red]")
+        exit(1)
+
+    return choice
 
 
 def ask_output_language() -> str:

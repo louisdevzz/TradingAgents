@@ -36,7 +36,15 @@ app = typer.Typer(
     name="TradingAgents",
     help="TradingAgents CLI: Multi-Agents LLM Financial Trading Framework",
     add_completion=True,  # Enable shell completion
+    invoke_without_command=True,
 )
+
+
+@app.callback()
+def default(ctx: typer.Context):
+    """Run analyze when no subcommand is given."""
+    if ctx.invoked_subcommand is None:
+        run_analysis()
 
 
 # Create a deque to store recent messages with a maximum length
@@ -498,40 +506,55 @@ def get_user_selections():
             box_content += f"\n[dim]Default: {default}[/dim]"
         return Panel(box_content, border_style="blue", padding=(1, 2))
 
-    # Step 1: Ticker symbol
+    # Step 1: Market mode
     console.print(
         create_question_box(
-            "Step 1: Ticker Symbol",
-            "Enter the exact ticker symbol to analyze, including exchange suffix when needed (examples: SPY, CNC.TO, 7203.T, 0700.HK)",
-            "SPY",
+            "Step 1: Market Mode",
+            "Select the market you want to analyze",
+        )
+    )
+    selected_market_mode = select_market_mode()
+    if selected_market_mode == "vietnam":
+        ticker_hint = "e.g. ACB, VNM, VIC, HPG, FPT"
+        ticker_default = "ACB"
+    else:
+        ticker_hint = "e.g. SPY, GC=F (Gold), AAPL, BTC-USD, CNC.TO, 7203.T"
+        ticker_default = "SPY"
+
+    # Step 2: Ticker symbol
+    console.print(
+        create_question_box(
+            "Step 2: Ticker Symbol",
+            f"Enter the exact ticker symbol to analyze ({ticker_hint})",
+            ticker_default,
         )
     )
     selected_ticker = get_ticker()
 
-    # Step 2: Analysis date
+    # Step 3: Analysis date
     default_date = datetime.datetime.now().strftime("%Y-%m-%d")
     console.print(
         create_question_box(
-            "Step 2: Analysis Date",
+            "Step 3: Analysis Date",
             "Enter the analysis date (YYYY-MM-DD)",
             default_date,
         )
     )
     analysis_date = get_analysis_date()
 
-    # Step 3: Output language
+    # Step 4: Output language
     console.print(
         create_question_box(
-            "Step 3: Output Language",
+            "Step 4: Output Language",
             "Select the language for analyst reports and final decision"
         )
     )
     output_language = ask_output_language()
 
-    # Step 4: Select analysts
+    # Step 5: Select analysts
     console.print(
         create_question_box(
-            "Step 4: Analysts Team", "Select your LLM analyst agents for the analysis"
+            "Step 5: Analysts Team", "Select your LLM analyst agents for the analysis"
         )
     )
     selected_analysts = select_analysts()
@@ -539,32 +562,32 @@ def get_user_selections():
         f"[green]Selected analysts:[/green] {', '.join(analyst.value for analyst in selected_analysts)}"
     )
 
-    # Step 5: Research depth
+    # Step 6: Research depth
     console.print(
         create_question_box(
-            "Step 5: Research Depth", "Select your research depth level"
+            "Step 6: Research Depth", "Select your research depth level"
         )
     )
     selected_research_depth = select_research_depth()
 
-    # Step 6: LLM Provider
+    # Step 7: LLM Provider
     console.print(
         create_question_box(
-            "Step 6: LLM Provider", "Select your LLM provider"
+            "Step 7: LLM Provider", "Select your LLM provider"
         )
     )
     selected_llm_provider, backend_url = select_llm_provider()
 
-    # Step 7: Thinking agents
+    # Step 8: Thinking agents
     console.print(
         create_question_box(
-            "Step 7: Thinking Agents", "Select your thinking agents for analysis"
+            "Step 8: Thinking Agents", "Select your thinking agents for analysis"
         )
     )
     selected_shallow_thinker = select_shallow_thinking_agent(selected_llm_provider)
     selected_deep_thinker = select_deep_thinking_agent(selected_llm_provider)
 
-    # Step 8: Provider-specific thinking configuration
+    # Step 9: Provider-specific thinking configuration
     thinking_level = None
     reasoning_effort = None
     anthropic_effort = None
@@ -573,23 +596,23 @@ def get_user_selections():
     if provider_lower == "google":
         console.print(
             create_question_box(
-                "Step 8: Thinking Mode",
+                "Step 9: Thinking Mode",
                 "Configure Gemini thinking mode"
             )
         )
         thinking_level = ask_gemini_thinking_config()
-    elif provider_lower == "openai":
+    elif provider_lower in ("openai", "openai-codex"):
         console.print(
             create_question_box(
-                "Step 8: Reasoning Effort",
-                "Configure OpenAI reasoning effort level"
+                "Step 9: Reasoning Effort",
+                "Configure reasoning effort level"
             )
         )
         reasoning_effort = ask_openai_reasoning_effort()
     elif provider_lower == "anthropic":
         console.print(
             create_question_box(
-                "Step 8: Effort Level",
+                "Step 9: Effort Level",
                 "Configure Claude effort level"
             )
         )
@@ -608,6 +631,7 @@ def get_user_selections():
         "openai_reasoning_effort": reasoning_effort,
         "anthropic_effort": anthropic_effort,
         "output_language": output_language,
+        "market_mode": selected_market_mode,
     }
 
 
@@ -943,6 +967,18 @@ def run_analysis():
     config["anthropic_effort"] = selections.get("anthropic_effort")
     config["output_language"] = selections.get("output_language", "English")
 
+    # Configure data vendors based on market mode
+    market_mode = selections.get("market_mode", "global")
+    config["market_mode"] = market_mode
+    if market_mode == "vietnam":
+        ssi_vendors = {
+            "core_stock_apis": "ssi_iboard",
+            "technical_indicators": "ssi_iboard",
+            "fundamental_data": "ssi_iboard",
+            "news_data": "ssi_iboard",
+        }
+        config["data_vendors"] = ssi_vendors
+
     # Create stats callback handler for tracking LLM/tool calls
     stats_handler = StatsCallbackHandler()
 
@@ -1202,6 +1238,26 @@ def run_analysis():
 @app.command()
 def analyze():
     run_analysis()
+
+
+@app.command()
+def login():
+    """Authenticate with ChatGPT (Codex OAuth) and save credentials locally."""
+    from tradingagents.llm_clients import codex_login
+    try:
+        creds = codex_login()
+        console.print(f"[green]✓ Logged in as {creds.get('email') or creds.get('account_id')}[/green]")
+        console.print("[dim]Credentials saved to ~/.tradingagents/codex_auth.json[/dim]")
+    except Exception as e:
+        console.print(f"[red]Login failed: {e}[/red]")
+        raise typer.Exit(1)
+
+
+@app.command()
+def logout():
+    """Remove saved ChatGPT Codex credentials."""
+    from tradingagents.llm_clients import codex_logout
+    codex_logout()
 
 
 if __name__ == "__main__":

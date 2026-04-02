@@ -9,6 +9,17 @@ ProviderModeOptions = Dict[str, Dict[str, List[ModelOption]]]
 
 
 MODEL_OPTIONS: ProviderModeOptions = {
+    "openai-codex": {
+        "quick": [
+            ("GPT-5.3 Codex - Full reasoning model", "gpt-5.3-codex"),
+            ("GPT-5.2 Codex - Previous gen reasoning", "gpt-5.2-codex"),
+        ],
+        "deep": [
+            ("GPT-5.4 - Latest frontier, 272K context", "gpt-5.4"),
+            ("GPT-5.3 Codex - Full reasoning model", "gpt-5.3-codex"),
+            ("GPT-5.2 Codex - Previous gen reasoning", "gpt-5.2-codex"),
+        ],
+    },
     "openai": {
         "quick": [
             ("GPT-5.4 Mini - Fast, strong coding and tool use", "gpt-5.4-mini"),

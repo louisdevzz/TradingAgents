@@ -1,9 +1,35 @@
+"""LLM client factory.
+
+Supports two authentication modes:
+  1. ChatGPT Codex OAuth (provider="openai-codex") — no API key needed,
+     authenticates via browser login to chatgpt.com.
+  2. API key from environment (provider="openai" | "anthropic" | "google" |
+     "xai" | "openrouter" | "ollama") — reads the key from the corresponding
+     env variable.
+
+Only ONE provider is active at a time; set llm_provider in DEFAULT_CONFIG.
+"""
+
 from typing import Optional
 
 from .base_client import BaseLLMClient
+from .codex_client import CodexClient
 from .openai_client import OpenAIClient
 from .anthropic_client import AnthropicClient
 from .google_client import GoogleClient
+
+# Maps provider id → env variable that holds its API key (None = no key needed)
+_PROVIDER_ENV: dict[str, Optional[str]] = {
+    "openai": "OPENAI_API_KEY",
+    "openai-codex": None,          # OAuth — no env key
+    "anthropic": "ANTHROPIC_API_KEY",
+    "google": "GOOGLE_API_KEY",
+    "xai": "XAI_API_KEY",
+    "openrouter": "OPENROUTER_API_KEY",
+    "ollama": None,                # local — no key
+}
+
+SUPPORTED_PROVIDERS = list(_PROVIDER_ENV.keys())
 
 
 def create_llm_client(
@@ -15,35 +41,38 @@ def create_llm_client(
     """Create an LLM client for the specified provider.
 
     Args:
-        provider: LLM provider (openai, anthropic, google, xai, ollama, openrouter)
-        model: Model name/identifier
-        base_url: Optional base URL for API endpoint
-        **kwargs: Additional provider-specific arguments
-            - http_client: Custom httpx.Client for SSL proxy or certificate customization
-            - http_async_client: Custom httpx.AsyncClient for async operations
-            - timeout: Request timeout in seconds
-            - max_retries: Maximum retry attempts
-            - api_key: API key for the provider
-            - callbacks: LangChain callbacks
+        provider: One of the SUPPORTED_PROVIDERS.
+            - "openai-codex": ChatGPT OAuth flow (no API key needed).
+            - Others: reads API key from the matching environment variable.
+        model: Model name/identifier.
+        base_url: Optional override for the API endpoint.
+        **kwargs: Passed through to the underlying client
+            (timeout, max_retries, api_key, reasoning_effort, callbacks, …).
 
     Returns:
-        Configured BaseLLMClient instance
+        Configured BaseLLMClient instance.
 
     Raises:
-        ValueError: If provider is not supported
+        ValueError: If provider is not supported.
     """
-    provider_lower = provider.lower()
+    p = provider.lower().strip()
 
-    if provider_lower in ("openai", "ollama", "openrouter"):
-        return OpenAIClient(model, base_url, provider=provider_lower, **kwargs)
+    if p not in _PROVIDER_ENV:
+        raise ValueError(
+            f"Unsupported LLM provider: '{provider}'. "
+            f"Choose one of: {', '.join(SUPPORTED_PROVIDERS)}"
+        )
 
-    if provider_lower == "xai":
-        return OpenAIClient(model, base_url, provider="xai", **kwargs)
+    # ── ChatGPT Codex OAuth ──────────────────────────────────────────────────
+    if p == "openai-codex":
+        return CodexClient(model, base_url, **kwargs)
 
-    if provider_lower == "anthropic":
+    # ── API-key providers ────────────────────────────────────────────────────
+    if p == "anthropic":
         return AnthropicClient(model, base_url, **kwargs)
 
-    if provider_lower == "google":
+    if p == "google":
         return GoogleClient(model, base_url, **kwargs)
 
-    raise ValueError(f"Unsupported LLM provider: {provider}")
+    # openai / xai / openrouter / ollama all go through OpenAIClient
+    return OpenAIClient(model, base_url, provider=p, **kwargs)
