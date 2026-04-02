@@ -11,13 +11,12 @@ current snapshot — sufficient for intraday market analysis.
 
 from __future__ import annotations
 
-import json
-from datetime import datetime, timezone
 from typing import Annotated
 
 import pandas as pd
 
 from .ssi_iboard_common import ssi_get
+from .x_tweet_fetcher import build_x_tweet_news_block
 
 
 # ---------------------------------------------------------------------------
@@ -288,11 +287,13 @@ def get_insider_transactions(
 
 def get_news(
     ticker: Annotated[str, "Vietnam stock ticker"],
-    curr_date: Annotated[str, "Current date YYYY-MM-DD"],
-    look_back_days: Annotated[int, "Number of days to look back"] = 7,
+    start_date: Annotated[str, "Start date YYYY-MM-DD"],
+    end_date: Annotated[str, "End date YYYY-MM-DD"],
 ) -> str:
-    """Fetch recent news for a Vietnam stock. Falls back to guidance if unavailable."""
+    """Fetch recent news for a Vietnam stock with optional X social fallback."""
     symbol_upper = ticker.upper()
+    x_block = build_x_tweet_news_block(symbol_upper, start_date, end_date)
+
     try:
         data = ssi_get("/news", params={"symbol": symbol_upper, "size": 20})
         if data.get("code") != "SUCCESS" or not data.get("data"):
@@ -309,15 +310,20 @@ def get_news(
                 if summary:
                     lines.append(f"  {summary}")
                 lines.append("")
+        if x_block:
+            lines.extend(["", x_block])
         return "\n".join(lines)
     except Exception:
-        return (
+        fallback = (
             f"News data for {symbol_upper} is not directly available via SSI iBoard API. "
             f"For Vietnam stock news, refer to:\n"
             f"  - https://cafef.vn/co-phieu-{symbol_upper.lower()}.chn\n"
             f"  - https://vietstock.vn/{symbol_upper}\n"
             f"  - https://tinnhanhchungkhoan.vn (general Vietnam market news)"
         )
+        if x_block:
+            return f"{fallback}\n\n{x_block}"
+        return fallback
 
 
 def get_global_news(
